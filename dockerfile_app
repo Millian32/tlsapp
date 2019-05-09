@@ -1,0 +1,30 @@
+#escape=`
+FROM tlsbase
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $LogCommandHealthEvent = $true; $LogCommandLifecycleEvent = $true; $VerbosePreference = 'Continue'; "]
+
+RUN New-Item C:/app -itemtype directory ;
+COPY ./website/* C:/app/
+COPY ./xgBootstrapTLS.ps1 C:/
+COPY ./tlstest.pfx C:/
+
+# setup website in container
+RUN Remove-WebSite -Name 'Default Web Site'
+RUN	$pool = New-WebAppPool -Name "tlstest" ; `
+    $pool | Set-Item ; 
+RUN New-Website -Name 'tlstest' -Port 80 -PhysicalPath 'C:\app\' -ApplicationPool 'tlstest'
+
+ENV AppName=tlstest PfxPassword=Imagine8
+
+EXPOSE 80 443 8443
+
+ENTRYPOINT ["powershell"]
+CMD C:\xgBootstrapTLS.ps1; `
+	C:\ServiceMonitor.exe "w3svc"
+
+HEALTHCHECK --interval=30s --start-period=30s --retries=10 `
+ CMD powershell -command `
+    try { `
+     $response = iwr http://localhost:80 -UseBasicParsing; `
+     if ($response.StatusCode -eq 200) { return 0} `
+     else {return 1}; `
+    } catch { return 1 }

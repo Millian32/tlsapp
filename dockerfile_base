@@ -1,0 +1,15 @@
+#escape=`
+FROM mcr.microsoft.com/dotnet/framework/aspnet:4.7.2-windowsservercore-ltsc2019
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $LogCommandHealthEvent = $true; $LogCommandLifecycleEvent = $true; $VerbosePreference = 'Continue'; "]
+
+# Installing NET CORE webhosting to run in IIS
+COPY ./dotnet-hosting-2.2.4-win.exe "C:\temp\dotnet-hosting-2.2.4-win.exe"
+RUN start-process -Filepath C:\temp\dotnet-hosting-2.2.4-win.exe -ArgumentList @('/install', '/quiet', '/norestart') -Wait
+
+# enable remote iis mgmt possibility
+COPY ./EnableIisRemoteManagement.ps1 C:\
+EXPOSE 8172
+
+	
+
+

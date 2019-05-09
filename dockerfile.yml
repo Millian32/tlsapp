@@ -1,0 +1,8 @@
+FROM mcr.microsoft.com/dotnet/core/runtime:2.2
+
+WORKDIR /app
+COPY ./website/* ./
+EXPOSE 80
+EXPOSE 443
+
+ENTRYPOINT ["dotnet", "tls.dll"]

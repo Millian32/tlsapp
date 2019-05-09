@@ -1,0 +1,54 @@
+version: '3.7'
+
+services:
+     
+  tlsapp:
+    image: imagine-registry:5000/tlsapp
+    hostname: tlsapp
+    environment:
+      - ASPNETCORE_HTTPS_PORT=5066
+      - ASPNETCORE_URLS=https://+;http://+ 
+      - Kestrel__Certificates__Default__Path=C:\pfx\tlstest.pfx 
+      - Kestrel__Certificates__Default__Password=Imagine8
+    ports:
+      - "5066:443"
+      - "86:80"  
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.platform.os == windows
+          - node.role == worker
+          - node.labels.vm == 2
+      labels:
+        com.docker.lb.hosts: tlstest.ams.ic.com
+        com.docker.lb.network: xglinear_network
+        com.docker.lb.port: 8080
+        com.docker.lb.ssl_cert: tlstest_tlstest.ams.ic.com.cert
+        com.docker.lb.ssl_key: tlstest_tlstest.ams.ic.com.key
+      resources:
+        limits:
+          memory: 24000M
+        reservations:
+          memory: 8000M
+      restart_policy:
+        condition: on-failure
+        delay: 1s
+        max_attempts: 10
+        window: 60s
+    volumes:
+      - pfx-volume:C:/pfx/:rw    
+
+secrets:
+  tlstest.ams.ic.com.cert:
+    file: ./tlstest.ams.ic.com.cert
+  tlstest.ams.ic.com.key:
+    file: ./tlstest.ams.ic.com.key
+    
+volumes:
+  pfx-volume: {}
+  
+networks:
+  xglinear_network:
+    external: true

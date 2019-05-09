@@ -1,0 +1,71 @@
+#$Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $User, $PWord
+
+#$mypwd = Get-Credential -UserName 'manager\containeradministrator' -Message 'tls'
+
+#$User = "manager\containeradministrator'"
+
+
+
+
+Write-Host "Import Certificate" ;
+
+$appName = "tlstest2" ;
+$pfxFile = Get-ChildItem -Path .\ -Filter *.pfx -File -Name| ForEach-Object {
+    [System.IO.Path]::GetFileNameWithoutExtension($_)
+}
+Write-Host $pfxFile ;
+
+$PWord = ConvertTo-SecureString -String "Imagine8" -AsPlainText -Force ;
+$importCertOutput = Import-PfxCertificate -FilePath C:\$pfxFile.pfx -CertStoreLocation Cert:\LocalMachine\My -Password $PWord ;
+Write-Host $importCertOutput ;
+
+$newWebBindingOutput = New-WebBinding -name $appName -IP "*" -Port 443 -Protocol https -HostHeader $appName ;
+Write-Host $newWebBindingOutput ;
+
+
+
+Write-Host "Import Certificate" ;
+
+$appName = [Environment]::GetEnvironmentVariable("AppName", "Process")
+$pfxPassword = [Environment]::GetEnvironmentVariable("PfxPassword", "Process")
+
+$pfxFile = Get-ChildItem -Path .\ -Filter *.pfx -File -Name| ForEach-Object {
+    [System.IO.Path]::GetFileNameWithoutExtension($_) } ;
+Write-Host $pfxFile ;
+
+$PWord = ConvertTo-SecureString -String $pfxPassword -AsPlainText -Force ;
+$importCertOutput = Import-PfxCertificate -FilePath C:\$pfxFile.pfx -CertStoreLocation Cert:\LocalMachine\My -Password $PWord ;
+Write-Host $importCertOutput ;
+
+$newWebBindingOutput = New-WebBinding -name $appName -IP "*" -Port 443 -Protocol https -HostHeader $appName ;
+Write-Host $newWebBindingOutput ;
+
+Write-Host "Stop IIS and then wait 2 seconds..." ; 
+Start-Process iisreset -Wait ;
+
+
+
+$newWebBindingOutput = New-WebBinding -name $appName -IP "*" -Port 443 -Protocol https -HostHeader $appName ;
+
+#escape=`
+FROM tlsbase
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $LogCommandHealthEvent = $true; $LogCommandLifecycleEvent = $true; $VerbosePreference = 'Continue'; "]
+
+RUN New-Item C:/app -itemtype directory ;
+COPY ./website/* C:/app/
+COPY ./xgBootstrapTLS.ps1 C:/
+COPY ./tlstest.pfx C:/
+
+# setup website in container
+RUN Remove-WebSite -Name 'Default Web Site'
+RUN	$pool = New-WebAppPool -Name "tlstest" ; `
+    $pool | Set-Item ; 
+RUN New-Website -Name 'tlstest' -Port 80 -PhysicalPath 'C:\app\' -ApplicationPool 'tlstest'
+
+ENV AppName=tlstest PfxPassword=Imagine8
+
+EXPOSE 80 443 8443
+
+ENTRYPOINT ["powershell"]
+CMD C:\xgBootstrapTLS.ps1; `
+	C:\ServiceMonitor.exe "w3svc"
